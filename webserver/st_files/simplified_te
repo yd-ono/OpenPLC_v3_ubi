@@ -1,0 +1,165 @@
+FUNCTION_BLOCK composition_control
+  VAR
+    PID0 : PID;
+  END_VAR
+  VAR_INPUT
+    a_in_purge : REAL;
+    a_setpoint : REAL;
+  END_VAR
+  VAR_OUTPUT
+    valve_pos : REAL;
+  END_VAR
+  VAR
+    composition_k : REAL := 2.00;
+    composition_ti : REAL := 3.0;
+    cycle_time : TIME := T#50ms;
+  END_VAR
+
+  PID0(AUTO := TRUE, PV := a_in_purge, SP := a_setpoint, KP := composition_k, TR := composition_ti, CYCLE := cycle_time);
+  valve_pos := PID0.XOUT;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK pressure_control
+  VAR_INPUT
+    pressure : REAL;
+    pressure_sp : REAL;
+  END_VAR
+  VAR_OUTPUT
+    valve_pos : REAL;
+  END_VAR
+  VAR
+    pressure_k : REAL := -0.25;
+    pressure_ti : REAL := 1.5;
+    cycle_time : TIME := T#50ms;
+    PID0 : PID;
+  END_VAR
+
+  PID0(AUTO := TRUE, PV := pressure, SP := pressure_sp, KP := pressure_k, TR := pressure_ti, CYCLE := cycle_time);
+  valve_pos := PID0.XOUT;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK flow_control
+  VAR
+    flow : PID;
+    flow_k : REAL := 0.10;
+    flow_ti : REAL := 1.0;
+  END_VAR
+  VAR_INPUT
+    product_flow : REAL;
+  END_VAR
+  VAR
+    flow_time : TIME := T#50ms;
+  END_VAR
+  VAR_OUTPUT
+    valve1_pos : REAL;
+  END_VAR
+  VAR_INPUT
+    flow_set : REAL;
+  END_VAR
+
+  flow(AUTO := TRUE, PV := product_flow, SP := flow_set, KP := flow_k, TR := flow_ti, CYCLE := flow_time);
+  valve1_pos := flow.XOUT;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK scale_to_real
+  VAR_INPUT
+    uint_value : UINT;
+  END_VAR
+  VAR_OUTPUT
+    scaled_real : REAL;
+  END_VAR
+  VAR_INPUT
+    real_max : REAL;
+    real_min : REAL;
+    uint_max : UINT;
+    uint_min : UINT;
+  END_VAR
+  VAR
+    rate : REAL;
+    offset : REAL;
+  END_VAR
+
+  rate := (real_max - real_min) / real(uint_max - uint_min);
+  offset := real_min - real(uint_min)*rate;
+  scaled_real := real(uint_value)*rate + offset;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK pressure_override
+  VAR_INPUT
+    pressure : REAL;
+  END_VAR
+  VAR_OUTPUT
+    feed_sp : REAL;
+  END_VAR
+  VAR_INPUT
+    override_sp : REAL := 2900.0;
+  END_VAR
+  VAR
+    override_k : REAL := 0.7;
+    override_ti : REAL := 3.0;
+    cycle_time : TIME := T#50ms;
+    PID0 : PID;
+  END_VAR
+
+  PID0(AUTO := TRUE, PV := pressure, SP := override_sp, KP := override_k, TR := override_ti, CYCLE := cycle_time);
+  feed_sp := PID0.XOUT;
+END_FUNCTION_BLOCK
+
+PROGRAM main
+  VAR
+    flow_control0 : flow_control;
+    flow_max : REAL := 500.0;
+    comp_max : REAL := 100.0;
+    pressure_max : REAL := 3000.0;
+    flow_min : REAL := 0.0;
+    comp_min : REAL := 0.0;
+    pressure_min : REAL := 0.0;
+    min_4_20ma : UINT := 13107;
+    max_4_20ma : UINT := 65535;
+  END_VAR
+  VAR
+    product_flow AT %IW0 : UINT;
+    flow_set AT %MW0 : UINT;
+    a_in_purge AT %IW1 : UINT;
+    a_setpoint AT %MW1 : UINT;
+    pressure AT %IW2 : UINT;
+    pressure_sp AT %MW2 : UINT;
+  END_VAR
+  VAR
+    override_sp : REAL := 2900.0;
+    scale_to_real0 : scale_to_real;
+    scale_to_real1 : scale_to_real;
+    scale_to_real2 : scale_to_real;
+    scale_to_real3 : scale_to_real;
+    composition_control0 : composition_control;
+    scale_to_real4 : scale_to_real;
+    scale_to_real5 : scale_to_real;
+    pressure_control0 : pressure_control;
+    scale_to_real7 : scale_to_real;
+    pressure_override0 : pressure_override;
+  END_VAR
+
+  scale_to_real0(uint_value := product_flow, real_max := flow_max, real_min := flow_min, uint_max := max_4_20ma, uint_min := min_4_20ma);
+  scale_to_real1(uint_value := flow_set, real_max := flow_max, real_min := flow_min, uint_max := max_4_20ma, uint_min := min_4_20ma);
+  flow_control0(product_flow := scale_to_real0.scaled_real, flow_set := scale_to_real1.scaled_real);
+  scale_to_real3(uint_value := a_in_purge, real_max := comp_max, real_min := comp_min, uint_max := max_4_20ma, uint_min := min_4_20ma);
+  scale_to_real2(uint_value := a_setpoint, real_max := comp_max, real_min := comp_min, uint_max := max_4_20ma, uint_min := min_4_20ma);
+  composition_control0(a_in_purge := scale_to_real3.scaled_real, a_setpoint := scale_to_real2.scaled_real);
+  scale_to_real5(uint_value := pressure, real_max := pressure_max, real_min := pressure_min, uint_max := max_4_20ma, uint_min := min_4_20ma);
+  scale_to_real4(uint_value := pressure_sp, real_max := pressure_max, real_min := pressure_min, uint_max := max_4_20ma, uint_min := min_4_20ma);
+  pressure_control0(pressure := scale_to_real5.scaled_real, pressure_sp := scale_to_real4.scaled_real);
+  scale_to_real7(uint_value := pressure, real_max := pressure_max, real_min := pressure_min, uint_max := max_4_20ma, uint_min := min_4_20ma);
+  pressure_override0(pressure := scale_to_real7.scaled_real, override_sp := override_sp);
+END_PROGRAM
+
+
+CONFIGURATION configuration0
+  VAR_GLOBAL
+    LocalVar0 : DINT;
+  END_VAR
+
+  RESOURCE resource0 ON PLC
+    TASK main_task(INTERVAL := T#20ms,PRIORITY := 0);
+    PROGRAM instance0 : main;
+  END_RESOURCE
+END_CONFIGURATION

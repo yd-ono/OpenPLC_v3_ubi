@@ -1,0 +1,106 @@
+FROM registry.access.redhat.com/ubi9/ubi:latest as openplc-build
+
+ENV OPENPLC_DIR "/workdir"
+ENV PKG_CONFIG_PATH /usr/local/lib/pkgconfig
+ARG username="your_user_name"
+ARG password="your_password"
+RUN subscription-manager register --username=${username} --password=${password} && \
+
+# Install required packages
+    dnf -q -y install make automake gcc gcc-c++ \
+    kernel-devel pkg-config bison flex autoconf \
+    libtool openssl-devel cmake python3 python3-pip && \
+
+# Install python libraries
+    pip install --upgrade pip && \
+    pip install flask==2.3.3 werkzeug==2.3.7 flask-login==0.6.2 pyserial pymodbus==2.5.3
+
+# Preparation
+COPY . /workdir
+WORKDIR /workdir
+RUN mkdir /persistent
+VOLUME /persistent
+
+# Build Matiec
+WORKDIR ${OPENPLC_DIR}/utils/matiec_src
+RUN autoreconf -i && \
+    ./configure && \
+    make && \
+    cp ./iec2c "$OPENPLC_DIR/webserver/"
+
+# Build ST_optimizer
+WORKDIR ${OPENPLC_DIR}/utils/st_optimizer_src
+RUN g++ st_optimizer.cpp -o "$OPENPLC_DIR/webserver/st_optimizer"
+
+# Build Glue_generator
+WORKDIR ${OPENPLC_DIR}/utils/glue_generator_src
+RUN g++ -std=c++11 glue_generator.cpp -o "$OPENPLC_DIR/webserver/core/glue_generator"
+
+# Build DNP3
+WORKDIR ${OPENPLC_DIR}/utils/dnp3_src
+RUN cmake . && \
+    make && \
+    make install && \
+    ldconfig
+
+# Disable ETHERCAT
+WORKDIR ${OPENPLC_DIR}
+RUN echo "" > "$OPENPLC_DIR/webserver/scripts/ethercat"
+
+# Build Libmodbus
+WORKDIR ${OPENPLC_DIR}/utils/libmodbus_src
+RUN ./autogen.sh && \
+    ./configure && \
+    make install && \
+    ldconfig
+
+# Finalization
+WORKDIR ${OPENPLC_DIR}/webserver/scripts
+RUN ./change_hardware_layer.sh blank_linux && \
+    ./compile_program.sh blank_program.st
+
+RUN cat > "$OPENPLC_DIR/start_openplc.sh" <<EOF
+#!/bin/bash
+mkdir -p /persistent/st_files
+cp -n /workdir/webserver/dnp3_default.cfg /persistent/dnp3.cfg
+cp -n /workdir/webserver/openplc_default.db /persistent/openplc.db
+cp -n /workdir/webserver/st_files_default/* /persistent/st_files/
+cp -n /dev/null /persistent/persistent.file
+cp -n /dev/null /persistent/mbconfig.cfg
+cd "$OPENPLC_DIR/webserver"
+python3 webserver.py
+EOF
+RUN chmod a+x "$OPENPLC_DIR/start_openplc.sh"
+
+WORKDIR ${OPENPLC_DIR}
+RUN touch /persistent/mbconfig.cfg && \
+    touch /persistent/persistent.file && \
+    mkdir /persistent/st_files && \
+    cp /workdir/webserver/openplc.db /persistent/openplc.db && \
+    mv /workdir/webserver/openplc.db /workdir/webserver/openplc_default.db && \
+    cp /workdir/webserver/dnp3.cfg /persistent/dnp3.cfg && \
+    mv /workdir/webserver/dnp3.cfg /workdir/webserver/dnp3_default.cfg && \
+    cp /workdir/webserver/st_files/* /persistent/st_files && \
+    mv /workdir/webserver/st_files /workdir/webserver/st_files_default && \
+    ln -s /persistent/mbconfig.cfg /workdir/webserver/mbconfig.cfg && \
+    ln -s /persistent/persistent.file /workdir/webserver/persistent.file && \
+    ln -s /persistent/openplc.db /workdir/webserver/openplc.db && \
+    ln -s /persistent/dnp3.cfg /workdir/webserver/dnp3.cfg && \
+    ln -s /persistent/st_files /workdir/webserver/st_files
+
+#####
+# Include only binaries into a container image
+FROM registry.access.redhat.com/ubi9-minimal:9.3-1552
+ENV OPENPLC_DIR "/workdir"
+ENV PKG_CONFIG_PATH /usr/local/lib/pkgconfig
+
+# Install required packages
+RUN microdnf -y install python3 python3-pip
+
+# Install python libraries
+RUN pip install --upgrade pip && \
+    pip install flask==2.3.3 werkzeug==2.3.7 flask-login==0.6.2 pyserial pymodbus==2.5.3
+
+COPY --from=openplc-build ${OPENPLC_DIR} ${OPENPLC_DIR}
+WORKDIR ${OPENPLC_DIR}
+ENTRYPOINT ["./start_openplc.sh"]
