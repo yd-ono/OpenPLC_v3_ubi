@@ -47,6 +47,14 @@ _Devices can be passed to the `docker` daemon using the `-v` flag (e.g. `-v /dev
 ```bash
 docker run -it --rm --privileged -p 8080:8080 openplc:v3
 ```
+### Build using UBI
+
+```
+export username=<YOUR_RH_PORTAL_USERNAME>
+export password=<YOUR_RH_PORTAL_PASSWORD>
+podman build -t openplc:v3 --build-arg username=$username --build-arg password=$password -f Dockerfile.ubi
+```
+
 
 ### EtherCAT capability
 To build with EtherCAT capability try `./install.sh linux ethercat` for more information see `utils/ethercat_src`
