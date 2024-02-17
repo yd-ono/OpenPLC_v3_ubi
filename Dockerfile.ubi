@@ -1,7 +1,7 @@
 FROM registry.access.redhat.com/ubi9/ubi:latest as openplc-build
 
 ENV OPENPLC_DIR "/workdir"
-ENV PKG_CONFIG_PATH /usr/local/lib/pkgconfig
+ENV PKG_CONFIG_PATH "/usr/local/lib/pkgconfig"
 ARG username="your_user_name"
 ARG password="your_password"
 RUN subscription-manager register --username=${username} --password=${password} && \
@@ -67,7 +67,9 @@ cp -n /workdir/webserver/openplc_default.db /persistent/openplc.db
 cp -n /workdir/webserver/st_files_default/* /persistent/st_files/
 cp -n /dev/null /persistent/persistent.file
 cp -n /dev/null /persistent/mbconfig.cfg
-cd "$OPENPLC_DIR/webserver"
+cd "$OPENPLC_DIR
+
+/webserver"
 python3 webserver.py
 EOF
 RUN chmod a+x "$OPENPLC_DIR/start_openplc.sh"
@@ -86,22 +88,24 @@ RUN touch /persistent/mbconfig.cfg && \
     ln -s /persistent/persistent.file /workdir/webserver/persistent.file && \
     ln -s /persistent/openplc.db /workdir/webserver/openplc.db && \
     ln -s /persistent/dnp3.cfg /workdir/webserver/dnp3.cfg && \
-    ln -s /persistent/st_files /workdir/webserver/st_files
+    ln -s /persistent/st_files /workdir/webserver/st_files && \
+    export LD_LIBRARY_PATH=/usr/local/lib
 
 #####
 # Include only binaries into a container image
 FROM registry.access.redhat.com/ubi9-minimal:9.3-1552
 ENV OPENPLC_DIR "/workdir"
 ENV PKG_CONFIG_PATH /usr/local/lib/pkgconfig
+ENV LD_LIBRARY_PATH /usr/local/lib
 
 # Install required packages
-RUN microdnf -y install gcc gcc-c++ \
-    pkg-config openssl-devel python3 python3-pip && \
+RUN microdnf -y install gcc gcc-c++ python3 python3-pip && \
 
 # Install python libraries
     pip install --upgrade pip && \
     pip install flask==2.3.3 werkzeug==2.3.7 flask-login==0.6.2 pyserial pymodbus==2.5.3
 
 COPY --from=openplc-build ${OPENPLC_DIR} ${OPENPLC_DIR}
+COPY --from=openplc-build /usr/local/lib /usr/local/lib
 WORKDIR ${OPENPLC_DIR}
 ENTRYPOINT ["./start_openplc.sh"]
