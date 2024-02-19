@@ -92,6 +92,7 @@ RUN touch /persistent/mbconfig.cfg && \
     ln -s /persistent/st_files /workdir/webserver/st_files
 
 #####
+## [To Do] Support for multi-stage builds to reduce image size
 # Include only binaries into a container image
 # FROM registry.access.redhat.com/ubi9-minimal:9.3-1552
 # ENV OPENPLC_DIR "/workdir"
