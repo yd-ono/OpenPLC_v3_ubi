@@ -1,3 +1,26 @@
+TYPE
+  LOGLEVEL : (CRITICAL, WARNING, INFO, DEBUG) := INFO;
+END_TYPE
+
+FUNCTION_BLOCK LOGGER
+  VAR_INPUT
+    TRIG : BOOL;
+    MSG : STRING;
+    LEVEL : LOGLEVEL := INFO;
+  END_VAR
+  VAR
+    TRIG0 : BOOL;
+  END_VAR
+
+  IF TRIG AND NOT TRIG0 THEN
+  {{
+   LogMessage(GetFbVar(LEVEL),(char*)GetFbVar(MSG, .body),GetFbVar(MSG, .len));
+  }}
+  END_IF;
+  TRIG0:=TRIG;
+END_FUNCTION_BLOCK
+
+
 FUNCTION_BLOCK scale_to_real
   VAR_INPUT
     raw_input_value : UINT;
@@ -373,34 +396,34 @@ PROGRAM main
     first_run : BOOL := True;
   END_VAR
   VAR
-    flow_set AT %MW0 : UINT;
-    a_setpoint AT %MW1 : UINT;
-    pressure_sp AT %MW2 : UINT;
-    override_sp AT %MW3 : UINT;
-    level_sp AT %MW4 : UINT;
+    flow_set : UINT;
+    a_setpoint : UINT;
+    pressure_sp : UINT;
+    override_sp : UINT;
+    level_sp : UINT;
   END_VAR
   VAR
     composition_control0 : composition_control;
     scale_to_signed0 : scale_to_signed;
   END_VAR
   VAR
-    f1_valve_pos AT %IW100 : UINT;
-    f1_flow AT %IW101 : UINT;
-    f2_valve_pos AT %IW102 : UINT;
-    f2_flow AT %IW103 : UINT;
-    purge_valve_pos AT %IW104 : UINT;
-    purge_flow AT %IW105 : UINT;
-    product_valve_pos AT %IW106 : UINT;
-    product_flow AT %IW107 : UINT;
-    pressure AT %IW108 : UINT;
-    level AT %IW109 : UINT;
-    a_in_purge AT %IW110 : UINT;
-    b_in_purge AT %IW111 : UINT;
-    c_in_purge AT %IW112 : UINT;
-    f1_valve_sp AT %QW100 : UINT;
-    f2_valve_sp AT %QW101 : UINT;
-    purge_valve_sp AT %QW102 : UINT;
-    product_valve_sp AT %QW103 : UINT;
+    f1_valve_pos : UINT;
+    f1_flow : UINT;
+    f2_valve_pos : UINT;
+    f2_flow : UINT;
+    purge_valve_pos : UINT;
+    purge_flow : UINT;
+    product_valve_pos : UINT;
+    product_flow : UINT;
+    pressure : UINT;
+    level : UINT;
+    a_in_purge : UINT;
+    b_in_purge : UINT;
+    c_in_purge : UINT;
+    f1_valve_sp : UINT;
+    f2_valve_sp : UINT;
+    purge_valve_sp : UINT;
+    product_valve_sp : UINT;
   END_VAR
   VAR
     product_valve_safe : UINT := 0;
@@ -410,17 +433,17 @@ PROGRAM main
     pressure_control0 : pressure_control;
   END_VAR
   VAR
-    hmi_pressure AT %MW20 : INT;
-    hmi_level AT %MW21 : INT;
-    hmi_f1_valve_pos AT %MW22 : INT;
-    hmi_f1_flow AT %MW23 : INT;
-    hmi_f2_valve_pos AT %MW24 : INT;
-    hmi_f2_flow AT %MW25 : INT;
-    hmi_purge_valve_pos AT %MW26 : INT;
-    hmi_purge_flow AT %MW27 : INT;
-    hmi_product_valve_pos AT %MW28 : INT;
-    hmi_product_flow AT %MW29 : INT;
-    scan_count AT %MW30 : UINT;
+    hmi_pressure : INT;
+    hmi_level : INT;
+    hmi_f1_valve_pos : INT;
+    hmi_f1_flow : INT;
+    hmi_f2_valve_pos : INT;
+    hmi_f2_flow : INT;
+    hmi_purge_valve_pos : INT;
+    hmi_purge_flow : INT;
+    hmi_product_valve_pos : INT;
+    hmi_product_flow : INT;
+    scan_count : UINT;
   END_VAR
   VAR
     scale_to_signed1 : scale_to_signed;
@@ -510,7 +533,7 @@ CONFIGURATION Config0
 
   RESOURCE Res0 ON PLC
     VAR_GLOBAL
-      run_bit AT %QX0.0 : BOOL;
+      run_bit : BOOL;
     END_VAR
     TASK MainTask(INTERVAL := T#50ms,PRIORITY := 0);
     PROGRAM instance0 WITH MainTask : main;

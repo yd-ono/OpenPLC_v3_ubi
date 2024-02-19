@@ -1,0 +1,3 @@
+#include "beremiz.h"
+__DECLARE_GLOBAL_PROTOTYPE(BOOL,PYEXT_CSV_UPDATE)
+

@@ -1,3 +1,229 @@
+TYPE
+  LOGLEVEL : (CRITICAL, WARNING, INFO, DEBUG) := INFO;
+END_TYPE
+
+FUNCTION_BLOCK LOGGER
+  VAR_INPUT
+    TRIG : BOOL;
+    MSG : STRING;
+    LEVEL : LOGLEVEL := INFO;
+  END_VAR
+  VAR
+    TRIG0 : BOOL;
+  END_VAR
+
+  IF TRIG AND NOT TRIG0 THEN
+  {{
+   LogMessage(GetFbVar(LEVEL),(char*)GetFbVar(MSG, .body),GetFbVar(MSG, .len));
+  }}
+  END_IF;
+  TRIG0:=TRIG;
+END_FUNCTION_BLOCK
+
+
+
+FUNCTION_BLOCK python_eval
+  VAR_INPUT
+    TRIG : BOOL;
+    CODE : STRING;
+  END_VAR
+  VAR_OUTPUT
+    ACK : BOOL;
+    RESULT : STRING;
+  END_VAR
+  VAR
+    STATE : DWORD;
+    BUFFER : STRING;
+    PREBUFFER : STRING;
+    TRIGM1 : BOOL;
+    TRIGGED : BOOL;
+  END_VAR
+
+  {extern void __PythonEvalFB(int, PYTHON_EVAL*);__PythonEvalFB(0, data__);}
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK csv_read_by_string
+  VAR_EXTERNAL
+    pyext_csv_update : BOOL;
+  END_VAR
+  VAR_OUTPUT
+    ACK : BOOL;
+    RESULT : STRING;
+  END_VAR
+  VAR_INPUT
+    FILE_NAME : STRING;
+    ROW : STRING;
+    COLUMN : STRING;
+  END_VAR
+  VAR
+    OLDCODE : STRING;
+    py_eval : python_eval;
+    R_TRIG0 : R_TRIG;
+    R_TRIG1 : R_TRIG;
+    SR0 : SR;
+    _TMP_CONCAT7_OUT : STRING;
+    _TMP_NE16_OUT : BOOL;
+    _TMP_SEL18_OUT : STRING;
+    _TMP_OR15_OUT : BOOL;
+    _TMP_LEFT33_OUT : STRING;
+    _TMP_NE34_OUT : BOOL;
+    _TMP_AND39_OUT : BOOL;
+    R_TRIG2 : R_TRIG;
+  END_VAR
+
+  _TMP_CONCAT7_OUT := CONCAT('CSVRdStr("', FILE_NAME, '","', ROW, '","', COLUMN, '")');
+  _TMP_NE16_OUT := NE(_TMP_CONCAT7_OUT, OLDCODE);
+  _TMP_SEL18_OUT := SEL(_TMP_NE16_OUT, OLDCODE, _TMP_CONCAT7_OUT);
+  OLDCODE := _TMP_SEL18_OUT;
+  R_TRIG0(CLK := pyext_csv_update);
+  _TMP_OR15_OUT := OR(R_TRIG0.Q, _TMP_NE16_OUT);
+  py_eval(TRIG := _TMP_OR15_OUT, CODE := _TMP_CONCAT7_OUT);
+  R_TRIG1(CLK := py_eval.ACK);
+  _TMP_LEFT33_OUT := LEFT(py_eval.RESULT, 1);
+  _TMP_NE34_OUT := NE(_TMP_LEFT33_OUT, '#');
+  _TMP_AND39_OUT := AND(R_TRIG1.Q, _TMP_NE34_OUT);
+  R_TRIG2(CLK := _TMP_OR15_OUT);
+  SR0(S1 := _TMP_AND39_OUT, R := R_TRIG2.Q);
+  ACK := SR0.Q1;
+  RESULT := py_eval.RESULT;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK csv_reload
+  VAR_EXTERNAL
+    pyext_csv_update : BOOL;
+  END_VAR
+  VAR_OUTPUT
+    ACK : BOOL;
+    RESULT : STRING;
+  END_VAR
+  VAR
+    py_eval : python_eval;
+  END_VAR
+  VAR_INPUT
+    TRIG : BOOL;
+  END_VAR
+  VAR
+    R_TRIG0 : R_TRIG;
+    F_TRIG0 : F_TRIG;
+    _TMP_OR11_OUT : BOOL;
+    _TMP_NOT13_OUT : BOOL;
+    _TMP_MOVE12_ENO : BOOL;
+    _TMP_MOVE12_OUT : BOOL;
+  END_VAR
+
+  py_eval(TRIG := TRIG, CODE := 'pyext_csv_reload()');
+  ACK := py_eval.ACK;
+  RESULT := py_eval.RESULT;
+  R_TRIG0(CLK := py_eval.ACK);
+  F_TRIG0(CLK := py_eval.ACK);
+  _TMP_OR11_OUT := OR(R_TRIG0.Q, F_TRIG0.Q);
+  _TMP_NOT13_OUT := NOT(R_TRIG0.Q);
+  _TMP_MOVE12_OUT := MOVE(EN := _TMP_OR11_OUT, IN := _TMP_NOT13_OUT, ENO => _TMP_MOVE12_ENO);
+  IF _TMP_MOVE12_ENO THEN
+      pyext_csv_update := _TMP_MOVE12_OUT;
+  END_IF;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK csv_read_by_int
+  VAR_EXTERNAL
+    pyext_csv_update : BOOL;
+  END_VAR
+  VAR_OUTPUT
+    ACK : BOOL;
+    RESULT : STRING;
+  END_VAR
+  VAR_INPUT
+    FILE_NAME : STRING;
+    ROW : INT;
+    COLUMN : INT;
+  END_VAR
+  VAR
+    OLDCODE : STRING;
+    py_eval0 : python_eval;
+    R_TRIG1 : R_TRIG;
+    R_TRIG2 : R_TRIG;
+    SR0 : SR;
+    _TMP_INT_TO_STRING31_OUT : STRING;
+    _TMP_INT_TO_STRING2_OUT : STRING;
+    _TMP_CONCAT7_OUT : STRING;
+    _TMP_NE16_OUT : BOOL;
+    _TMP_SEL18_OUT : STRING;
+    _TMP_OR15_OUT : BOOL;
+    _TMP_LEFT33_OUT : STRING;
+    _TMP_NE34_OUT : BOOL;
+    _TMP_AND39_OUT : BOOL;
+    R_TRIG3 : R_TRIG;
+  END_VAR
+
+  _TMP_INT_TO_STRING31_OUT := INT_TO_STRING(ROW);
+  _TMP_INT_TO_STRING2_OUT := INT_TO_STRING(COLUMN);
+  _TMP_CONCAT7_OUT := CONCAT('CSVRdInt("', FILE_NAME, '",', _TMP_INT_TO_STRING31_OUT, ',', _TMP_INT_TO_STRING2_OUT, ')');
+  _TMP_NE16_OUT := NE(_TMP_CONCAT7_OUT, OLDCODE);
+  _TMP_SEL18_OUT := SEL(_TMP_NE16_OUT, OLDCODE, _TMP_CONCAT7_OUT);
+  OLDCODE := _TMP_SEL18_OUT;
+  R_TRIG1(CLK := pyext_csv_update);
+  _TMP_OR15_OUT := OR(R_TRIG1.Q, _TMP_NE16_OUT);
+  py_eval0(TRIG := _TMP_OR15_OUT, CODE := _TMP_CONCAT7_OUT);
+  R_TRIG2(CLK := py_eval0.ACK);
+  _TMP_LEFT33_OUT := LEFT(py_eval0.RESULT, 1);
+  _TMP_NE34_OUT := NE(_TMP_LEFT33_OUT, '#');
+  _TMP_AND39_OUT := AND(R_TRIG2.Q, _TMP_NE34_OUT);
+  R_TRIG3(CLK := _TMP_OR15_OUT);
+  SR0(S1 := _TMP_AND39_OUT, R := R_TRIG3.Q);
+  ACK := SR0.Q1;
+  RESULT := py_eval0.RESULT;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK python_poll
+  VAR_INPUT
+    TRIG : BOOL;
+    CODE : STRING;
+  END_VAR
+  VAR_OUTPUT
+    ACK : BOOL;
+    RESULT : STRING;
+  END_VAR
+  VAR
+    STATE : DWORD;
+    BUFFER : STRING;
+    PREBUFFER : STRING;
+    TRIGM1 : BOOL;
+    TRIGGED : BOOL;
+  END_VAR
+
+  {extern void __PythonEvalFB(int, PYTHON_EVAL*);__PythonEvalFB(1,(PYTHON_EVAL*)(void*)data__);}
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK python_gear
+  VAR_INPUT
+    N : UINT;
+    TRIG : BOOL;
+    CODE : STRING;
+  END_VAR
+  VAR_OUTPUT
+    ACK : BOOL;
+    RESULT : STRING;
+  END_VAR
+  VAR
+    py_eval : python_eval;
+    COUNTER : UINT;
+    _TMP_ADD10_OUT : UINT;
+    _TMP_EQ13_OUT : BOOL;
+    _TMP_AND7_OUT : BOOL;
+    _TMP_SEL15_OUT : UINT;
+  END_VAR
+
+  _TMP_ADD10_OUT := ADD(COUNTER, 1);
+  _TMP_EQ13_OUT := EQ(N, _TMP_ADD10_OUT);
+  _TMP_AND7_OUT := AND(_TMP_EQ13_OUT, TRIG);
+  py_eval(TRIG := _TMP_AND7_OUT, CODE := CODE);
+  ACK := py_eval.ACK;
+  RESULT := py_eval.RESULT;
+  _TMP_SEL15_OUT := SEL(_TMP_EQ13_OUT, _TMP_ADD10_OUT, 0);
+  COUNTER := _TMP_SEL15_OUT;
+END_FUNCTION_BLOCK
+
+
 FUNCTION_BLOCK scale_to_real
   VAR_INPUT
     raw_input_value : UINT;
@@ -150,25 +376,6 @@ FUNCTION_BLOCK composition_control
   new_pos := scale_to_uint0.uint_out;
   scale_to_real0(raw_input_value := curr_pos, real_max := pos_max, real_min := pos_min);
   valve_pos_real := scale_to_real0.scaled_real;
-END_FUNCTION_BLOCK
-
-FUNCTION_BLOCK scale_to_signed
-  VAR_INPUT
-    input_uint : UINT;
-  END_VAR
-  VAR_OUTPUT
-    output_int : INT;
-  END_VAR
-  VAR
-    _TMP_DIV3_OUT : UINT;
-    _TMP_ABS8_OUT : UINT;
-    _TMP_UINT_TO_INT9_OUT : INT;
-  END_VAR
-
-  _TMP_DIV3_OUT := DIV(input_uint, 2);
-  _TMP_ABS8_OUT := ABS(_TMP_DIV3_OUT);
-  _TMP_UINT_TO_INT9_OUT := UINT_TO_INT(_TMP_ABS8_OUT);
-  output_int := _TMP_UINT_TO_INT9_OUT;
 END_FUNCTION_BLOCK
 
 FUNCTION_BLOCK pressure_control
@@ -335,10 +542,10 @@ END_FUNCTION_BLOCK
 FUNCTION_BLOCK initialize_sp
   VAR CONSTANT
     flow_sp_c : UINT := 13107;
-    a_sp_c : UINT := 65535;
-    press_sp_c : UINT := 65535;
-    over_sp_c : UINT := 65535;
-    level_sp_c : UINT := 65535;
+    a_sp_c : UINT := 30801;
+    press_sp_c : UINT := 55295;
+    over_sp_c : UINT := 31675;
+    level_sp_c : UINT := 28835;
   END_VAR
   VAR_OUTPUT
     flow_sp : UINT;
@@ -381,7 +588,6 @@ PROGRAM main
   END_VAR
   VAR
     composition_control0 : composition_control;
-    scale_to_signed0 : scale_to_signed;
   END_VAR
   VAR
     f1_valve_pos AT %IW100 : UINT;
@@ -423,67 +629,35 @@ PROGRAM main
     scan_count AT %MW30 : UINT;
   END_VAR
   VAR
-    scale_to_signed1 : scale_to_signed;
-    scale_to_signed2 : scale_to_signed;
-    scale_to_signed3 : scale_to_signed;
-    scale_to_signed4 : scale_to_signed;
-    scale_to_signed5 : scale_to_signed;
-    scale_to_signed6 : scale_to_signed;
-    scale_to_signed7 : scale_to_signed;
-    scale_to_signed8 : scale_to_signed;
-    scale_to_signed9 : scale_to_signed;
     pressure_override0 : pressure_override;
     level_control0 : level_control;
   END_VAR
-  VAR_EXTERNAL
-    run_bit : BOOL;
+  VAR
+    run_bit AT %QX5 : BOOL;
   END_VAR
   VAR
     run_bit0 : BOOL := True;
     initialize_sp0 : initialize_sp;
-    _TMP_ADD87_OUT : UINT;
-    _TMP_GE91_OUT : BOOL;
-    _TMP_MOVE92_ENO : BOOL;
-    _TMP_MOVE92_OUT : UINT;
+    _TMP_MOVE99_ENO : BOOL;
+    _TMP_MOVE99_OUT : UINT;
+    _TMP_MOVE4_ENO : BOOL;
+    _TMP_MOVE4_OUT : UINT;
+    _TMP_MOVE5_ENO : BOOL;
+    _TMP_MOVE5_OUT : UINT;
+    _TMP_MOVE7_ENO : BOOL;
+    _TMP_MOVE7_OUT : UINT;
   END_VAR
 
   flow_control0(product_flow := product_flow, curr_pos := f1_valve_pos, flow_set_in := flow_set);
   f1_valve_sp := flow_control0.new_pos;
   composition_control0(a_in_purge := a_in_purge, a_setpoint := a_setpoint, curr_pos := f2_valve_pos);
   f2_valve_sp := composition_control0.new_pos;
-  scale_to_signed0(input_uint := pressure);
-  hmi_pressure := scale_to_signed0.output_int;
-  scale_to_signed1(input_uint := level);
-  hmi_level := scale_to_signed1.output_int;
-  scale_to_signed2(input_uint := f1_valve_pos);
-  hmi_f1_valve_pos := scale_to_signed2.output_int;
-  scale_to_signed3(input_uint := f2_valve_pos);
-  hmi_f2_valve_pos := scale_to_signed3.output_int;
-  scale_to_signed4(input_uint := purge_valve_pos);
-  hmi_purge_valve_pos := scale_to_signed4.output_int;
-  scale_to_signed5(input_uint := product_valve_pos);
-  hmi_product_valve_pos := scale_to_signed5.output_int;
-  scale_to_signed6(input_uint := f1_flow);
-  hmi_f1_flow := scale_to_signed6.output_int;
-  scale_to_signed7(input_uint := f2_flow);
-  hmi_f2_flow := scale_to_signed7.output_int;
-  scale_to_signed8(input_uint := purge_flow);
-  hmi_purge_flow := scale_to_signed8.output_int;
-  scale_to_signed9(input_uint := product_flow);
-  hmi_product_flow := scale_to_signed9.output_int;
   pressure_control0(pressure := pressure, pressure_sp := pressure_sp, curr_pos := purge_valve_pos);
   purge_valve_sp := pressure_control0.valve_pos;
   pressure_override0(pressure := pressure, curr_sp := flow_set, override_sp := override_sp);
   flow_set := pressure_override0.product_sp;
   level_control0(liquid_level := level, level_sp := level_sp, curr_pos := product_valve_pos);
   product_valve_sp := level_control0.new_pos;
-  _TMP_ADD87_OUT := ADD(scan_count, 1);
-  scan_count := _TMP_ADD87_OUT;
-  _TMP_GE91_OUT := GE(scan_count, 32000);
-  _TMP_MOVE92_OUT := MOVE(EN := _TMP_GE91_OUT, IN := 0, ENO => _TMP_MOVE92_ENO);
-  IF _TMP_MOVE92_ENO THEN
-      scan_count := _TMP_MOVE92_OUT;
-  END_IF;
   initialize_sp0(EN := first_run);
   IF initialize_sp0.ENO THEN
     first_run := FALSE; (*reset*)
@@ -503,15 +677,31 @@ PROGRAM main
   IF initialize_sp0.ENO THEN
       level_sp := initialize_sp0.level_sp;
   END_IF;
+  _TMP_MOVE99_OUT := MOVE(EN := run_bit, IN := 0, ENO => _TMP_MOVE99_ENO);
+  _TMP_MOVE4_OUT := MOVE(EN := _TMP_MOVE99_ENO, IN := 0, ENO => _TMP_MOVE4_ENO);
+  _TMP_MOVE5_OUT := MOVE(EN := _TMP_MOVE4_ENO, IN := 65535, ENO => _TMP_MOVE5_ENO);
+  IF _TMP_MOVE5_ENO THEN
+      purge_valve_sp := _TMP_MOVE5_OUT;
+  END_IF;
+  _TMP_MOVE7_OUT := MOVE(EN := _TMP_MOVE5_ENO, IN := 65535, ENO => _TMP_MOVE7_ENO);
+  IF _TMP_MOVE7_ENO THEN
+      product_valve_sp := _TMP_MOVE7_OUT;
+  END_IF;
+  IF _TMP_MOVE99_ENO THEN
+      f1_valve_sp := _TMP_MOVE99_OUT;
+  END_IF;
+  IF _TMP_MOVE4_ENO THEN
+      f2_valve_sp := _TMP_MOVE4_OUT;
+  END_IF;
 END_PROGRAM
 
 
 CONFIGURATION Config0
+  VAR_GLOBAL
+    pyext_csv_update : BOOL := TRUE;
+  END_VAR
 
   RESOURCE Res0 ON PLC
-    VAR_GLOBAL
-      run_bit AT %QX0.0 : BOOL;
-    END_VAR
     TASK MainTask(INTERVAL := T#50ms,PRIORITY := 0);
     PROGRAM instance0 WITH MainTask : main;
   END_RESOURCE
