@@ -110,4 +110,20 @@ RUN touch /persistent/mbconfig.cfg && \
 # COPY --from=openplc-build /persistent /persistent
 # COPY --from=openplc-build /usr/local/lib /usr/local/lib
 # WORKDIR ${OPENPLC_DIR}
+
+# RUN touch /persistent/mbconfig.cfg && \
+#     touch /persistent/persistent.file && \
+#     mkdir /persistent/st_files && \
+#     cp /workdir/webserver/openplc.db /persistent/openplc.db && \
+#     mv /workdir/webserver/openplc.db /workdir/webserver/openplc_default.db && \
+#     cp /workdir/webserver/dnp3.cfg /persistent/dnp3.cfg && \
+#     mv /workdir/webserver/dnp3.cfg /workdir/webserver/dnp3_default.cfg && \
+#     cp /workdir/webserver/st_files/* /persistent/st_files && \
+#     mv /workdir/webserver/st_files /workdir/webserver/st_files_default && \
+#     ln -s /persistent/mbconfig.cfg /workdir/webserver/mbconfig.cfg && \
+#     ln -s /persistent/persistent.file /workdir/webserver/persistent.file && \
+#     ln -s /persistent/openplc.db /workdir/webserver/openplc.db && \
+#     ln -s /persistent/dnp3.cfg /workdir/webserver/dnp3.cfg && \
+#     ln -s /persistent/st_files /workdir/webserver/st_files
+
 ENTRYPOINT ["./start_openplc.sh"]
