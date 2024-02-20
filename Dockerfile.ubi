@@ -67,8 +67,9 @@ mkdir -p /persistent/st_files
 cp -n /workdir/webserver/dnp3_default.cfg /persistent/dnp3.cfg
 cp -n /workdir/webserver/openplc_default.db /persistent/openplc.db
 cp -n /workdir/webserver/st_files_default/* /persistent/st_files/
-# cp -n /dev/null /persistent/persistent.file
-# cp -n /dev/null /persistent/mbconfig.cfg
+cp -n /workdir/webserver/mbconfig_default.cfg /persistent/mbconfig.cfg
+cp -n /dev/null /persistent/persistent.file
+
 cd "$OPENPLC_DIR/webserver"
 python3 webserver.py
 EOF
@@ -85,6 +86,8 @@ RUN touch /persistent/mbconfig.cfg && \
     mv /workdir/webserver/dnp3.cfg /workdir/webserver/dnp3_default.cfg && \
     cp /workdir/webserver/st_files/* /persistent/st_files && \
     mv /workdir/webserver/st_files /workdir/webserver/st_files_default && \
+    cp /workdir/webserver/mbconfig.cfg /persistent/mbconfig.cfg && \
+    mv /workdir/webserver/mbconfig.cfg /workdir/webserver/mbconfig_default.cfg && \
     ln -s /persistent/mbconfig.cfg /workdir/webserver/mbconfig.cfg && \
     ln -s /persistent/persistent.file /workdir/webserver/persistent.file && \
     ln -s /persistent/openplc.db /workdir/webserver/openplc.db && \
