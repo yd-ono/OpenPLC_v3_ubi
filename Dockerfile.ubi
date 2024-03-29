@@ -1,7 +1,7 @@
 FROM registry.access.redhat.com/ubi9/ubi:latest as openplc-build
 
 ENV OPENPLC_DIR "/workdir"
-ENV LD_LIBRARY_PATH /usr/local/lib
+ENV LD_LIBRARY_PATH "/usr/local/lib"
 ENV PKG_CONFIG_PATH "/usr/local/lib/pkgconfig"
 ARG username="your_user_name"
 ARG password="your_password"
@@ -76,6 +76,43 @@ EOF
 
 RUN chmod a+x "$OPENPLC_DIR/start_openplc.sh"
 
+# WORKDIR ${OPENPLC_DIR}
+# RUN touch /persistent/mbconfig.cfg && \
+#     touch /persistent/persistent.file && \
+#     mkdir /persistent/st_files && \
+#     cp /workdir/webserver/openplc.db /persistent/openplc.db && \
+#     mv /workdir/webserver/openplc.db /workdir/webserver/openplc_default.db && \
+#     cp /workdir/webserver/dnp3.cfg /persistent/dnp3.cfg && \
+#     mv /workdir/webserver/dnp3.cfg /workdir/webserver/dnp3_default.cfg && \
+#     cp /workdir/webserver/st_files/* /persistent/st_files && \
+#     mv /workdir/webserver/st_files /workdir/webserver/st_files_default && \
+#     cp /workdir/webserver/mbconfig.cfg /persistent/mbconfig.cfg && \
+#     mv /workdir/webserver/mbconfig.cfg /workdir/webserver/mbconfig_default.cfg && \
+#     ln -s /persistent/mbconfig.cfg /workdir/webserver/mbconfig.cfg && \
+#     ln -s /persistent/persistent.file /workdir/webserver/persistent.file && \
+#     ln -s /persistent/openplc.db /workdir/webserver/openplc.db && \
+#     ln -s /persistent/dnp3.cfg /workdir/webserver/dnp3.cfg && \
+#     ln -s /persistent/st_files /workdir/webserver/st_files
+
+#####
+## Multi-stage builds to reduce image size
+# Include only binaries into a container image
+FROM registry.access.redhat.com/ubi9-minimal:9.3-1552
+ENV OPENPLC_DIR "/workdir"
+ENV LD_LIBRARY_PATH "/usr/local/lib"
+ENV PKG_CONFIG_PATH "/usr/local/lib/pkgconfig"
+
+# Install required packages
+RUN microdnf -y install gcc gcc-c++ python3 python3-pip sqlite && \
+
+# Install python libraries
+    pip install --upgrade pip && \
+    pip install flask==2.3.3 werkzeug==2.3.7 flask-login==0.6.2 pyserial pymodbus==2.5.3
+
+COPY --from=openplc-build ${OPENPLC_DIR} ${OPENPLC_DIR}
+COPY --from=openplc-build /persistent /persistent
+COPY --from=openplc-build /usr/local/lib /usr/local/lib
+
 WORKDIR ${OPENPLC_DIR}
 RUN touch /persistent/mbconfig.cfg && \
     touch /persistent/persistent.file && \
@@ -93,40 +130,5 @@ RUN touch /persistent/mbconfig.cfg && \
     ln -s /persistent/openplc.db /workdir/webserver/openplc.db && \
     ln -s /persistent/dnp3.cfg /workdir/webserver/dnp3.cfg && \
     ln -s /persistent/st_files /workdir/webserver/st_files
-
-#####
-## [To Do] Support for multi-stage builds to reduce image size
-# Include only binaries into a container image
-# FROM registry.access.redhat.com/ubi9-minimal:9.3-1552
-# ENV OPENPLC_DIR "/workdir"
-# ENV PKG_CONFIG_PATH "/usr/local/lib/pkgconfig:/workdir/utils/libmodbus_src/src:/workdir/utils/dnp3_src/cpp/libs/include"
-# ENV LD_LIBRARY_PATH "/usr/local/lib:/workdir/utils/libmodbus_src/src:/workdir/utils/dnp3_src/cpp/libs/include"
-
-# # Install required packages
-# RUN microdnf -y install gcc gcc-c++ python3 python3-pip sqlite && \
-
-# # Install python libraries
-#     pip install --upgrade pip && \
-#     pip install flask==2.3.3 werkzeug==2.3.7 flask-login==0.6.2 pyserial pymodbus==2.5.3
-
-# COPY --from=openplc-build ${OPENPLC_DIR} ${OPENPLC_DIR}
-# COPY --from=openplc-build /persistent /persistent
-# COPY --from=openplc-build /usr/local/lib /usr/local/lib
-# WORKDIR ${OPENPLC_DIR}
-
-# RUN touch /persistent/mbconfig.cfg && \
-#     touch /persistent/persistent.file && \
-#     mkdir /persistent/st_files && \
-#     cp /workdir/webserver/openplc.db /persistent/openplc.db && \
-#     mv /workdir/webserver/openplc.db /workdir/webserver/openplc_default.db && \
-#     cp /workdir/webserver/dnp3.cfg /persistent/dnp3.cfg && \
-#     mv /workdir/webserver/dnp3.cfg /workdir/webserver/dnp3_default.cfg && \
-#     cp /workdir/webserver/st_files/* /persistent/st_files && \
-#     mv /workdir/webserver/st_files /workdir/webserver/st_files_default && \
-#     ln -s /persistent/mbconfig.cfg /workdir/webserver/mbconfig.cfg && \
-#     ln -s /persistent/persistent.file /workdir/webserver/persistent.file && \
-#     ln -s /persistent/openplc.db /workdir/webserver/openplc.db && \
-#     ln -s /persistent/dnp3.cfg /workdir/webserver/dnp3.cfg && \
-#     ln -s /persistent/st_files /workdir/webserver/st_files
 
 ENTRYPOINT ["./start_openplc.sh"]
